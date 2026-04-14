@@ -83,11 +83,10 @@ class ASRDataset(Dataset):
         self.sos_token = self.tokenizer.sos_id
         self.pad_token = self.tokenizer.pad_id
 
-        # Set up data paths 
-        # TODO: Use root and partition to get the feature directory
+        # Setup exact feature directory path
         self.fbank_dir = os.path.join(self.config['root'], partition, 'fbank')
         
-        # TODO: Get all feature files in the feature directory in sorted order  
+        # Gather feature file paths in a deterministically sorted order
         self.fbank_files = sorted(os.listdir(self.fbank_dir))
         
         # TODO: Take subset
@@ -259,10 +258,10 @@ class ASRDataset(Dataset):
                 - shifted_transcript: LongTensor (time) or None
                 - golden_transcript: LongTensor  (time) or None
         """
-        # TODO: Load features
+        # Fetch feature from pre-stored sequence
         feat = torch.FloatTensor(self.feats[idx])
 
-        # TODO: Apply normalization
+        # Apply specific normalization techniques if demanded
         if self.config['norm'] == 'global_mvn':
             assert self.global_mean is not None and self.global_std is not None, "Global mean and std must be computed before normalization"
             feat = (feat - self.global_mean.unsqueeze(1)) / (self.global_std.unsqueeze(1) + 1e-8)

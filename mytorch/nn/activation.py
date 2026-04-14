@@ -21,10 +21,10 @@ class Softmax:
             raise ValueError("Dimension to apply softmax to is greater than the number of dimensions in Z")
         
         # TODO: Implement forward pass
-        # Numerically stable softmax: subtract max before exponentiation.
-        shifted = Z - np.max(Z, axis=self.dim, keepdims=True)
-        exp_shifted = np.exp(shifted)
-        self.A = exp_shifted / np.sum(exp_shifted, axis=self.dim, keepdims=True)
+        # Stable approach by dropping the maxima factor to prevent explosions
+        z_shifted = Z - np.max(Z, axis=self.dim, keepdims=True)
+        exponent_terms = np.exp(z_shifted)
+        self.A = exponent_terms / np.sum(exponent_terms, axis=self.dim, keepdims=True)
         return self.A
 
     def backward(self, dLdA):
@@ -33,10 +33,10 @@ class Softmax:
         :return: Gradient of loss with respect to activation input
         """
         # TODO: Implement backward pass
-        # Jacobian-vector product for softmax in a vectorized form.
-        dot = np.sum(dLdA * self.A, axis=self.dim, keepdims=True)
-        dLdZ = self.A * (dLdA - dot)
-        return dLdZ
+        # Direct vectorized resolution simulating jacobian transformation
+        product_sum = np.sum(dLdA * self.A, axis=self.dim, keepdims=True)
+        d_input = self.A * (dLdA - product_sum)
+        return d_input
  
 
     

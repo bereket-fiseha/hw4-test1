@@ -4,26 +4,27 @@ import numpy as np
 
 class MultiHeadAttention:
     """
-    Multi Head Attention
+    Multi-Head Attention Layer
     """ 
     def __init__(self, embed_dim, num_heads):
         """
-        :param embed_dim: Embedding dimension
-        :param num_heads: Number of attention heads
+        Initializer for Multi-Head Attention layer.
+        :param embed_dim: Dimensionality of the input embeddings.
+        :param num_heads: Amount of parallel attention heads.
         """
         if embed_dim % num_heads != 0:
-            raise ValueError("embed_dim must be divisible by num_heads")
+            raise ValueError("The embed_dim variable must be perfectly divisible by num_heads")
 
         # Initialize parameters and layers
         # DO NOT MODIFY
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         
-        # Initialize your scaled dot product attention layer
+        # Prepare the scaled dot-product attention core element
         self.attention = ScaledDotProductAttention()
         
-        # Initialize your linear layer
-        #  embed_dim -> embed_dim
+        # Instantiate dense projections for Query, Key, Value, and Output
+        # Mapping: embed_dim -> embed_dim
         self.q_proj   = Linear(embed_dim, embed_dim)
         self.k_proj   = Linear(embed_dim, embed_dim)
         self.v_proj   = Linear(embed_dim, embed_dim)
@@ -82,29 +83,29 @@ class MultiHeadAttention:
 
     def backward(self, d_output):
         """
-        Backward pass for multi-head attention.
+        Backward pass implementation for the multi-head attention.
         """
 
-        # Backpropagate through output projection
-        d_attn_output = self.out_proj.backward(d_output)
+        # Project backwards through output dense layer
+        grad_attn_out = self.out_proj.backward(d_output)
 
-        # Undo head splitting
-        d_attn_outputs = self._split_heads(d_attn_output)
+        # Restore head dimensionality for gradients
+        grad_attn_out_split = self._split_heads(grad_attn_out)
 
-        # Backpropagate through attention
-        d_q, d_k, d_v = self.attention.backward(d_attn_outputs)
+        # Backward propagation across SDPA
+        grad_q_split, grad_k_split, grad_v_split = self.attention.backward(grad_attn_out_split)
 
-        # Merge head gradients
-        d_q = self._concat_heads(d_q)
-        d_k = self._concat_heads(d_k)
-        d_v = self._concat_heads(d_v)
+        # Stitch head gradients back together 
+        grad_q = self._concat_heads(grad_q_split)
+        grad_k = self._concat_heads(grad_k_split)
+        grad_v = self._concat_heads(grad_v_split)
 
-        # Backpropagate through input projections
-        d_q = self.q_proj.backward(d_q)
-        d_k = self.k_proj.backward(d_k)
-        d_v = self.v_proj.backward(d_v)
+        # Pass representations through respective input projection backwards
+        d_query = self.q_proj.backward(grad_q)
+        d_key = self.k_proj.backward(grad_k)
+        d_value = self.v_proj.backward(grad_v)
 
-        return d_q, d_k, d_v
+        return d_query, d_key, d_value
 
     def _merge_masks(self, key_padding_mask, attn_mask):
         """
@@ -148,12 +149,12 @@ class MultiHeadAttention:
 
     def _concat_heads(self, x):
         """
-        Concatenate the last dimension into (num_heads, d_k).
-        Transpose to move num_heads dimension to the back.
-        :param x: (N, num_heads, L, embed_dim // num_heads)
-        :return: (N, L, embed_dim)
+        Collapses the internal multi-head dimension into (N, L, embed_dim).
+        Performs a continuous transpose placing the num_heads back.
+        :param x: Array shaped as (N, num_heads, L, embed_dim // num_heads)
+        :return: Array shaped as (N, L, embed_dim)
         """
-        # Transpose and reshape
+        # Execute matrix axis swap and fold 
         x = np.transpose(x, (0, 2, 1, 3))
         x = x.reshape(x.shape[0], x.shape[1], self.embed_dim)
         

@@ -30,25 +30,22 @@ class ScaledDotProductAttention:
         self.mask = mask
         self.d_k = Q.shape[-1]
         
-        # Calculate attention scores
-        scaled_dot_product = np.matmul(Q, np.swapaxes(K, -1, -2)) / np.sqrt(self.d_k)
+        # Derive unnormalized attention scores scaled by dimensionality
+        scaled_dp = np.matmul(Q, np.swapaxes(K, -1, -2)) / np.sqrt(self.d_k)
         
-        # Apply mask before softmax if provided
+        # Incorporate masking preceding softmax normalization
         if mask is not None:
-            # True means ignore this position.
-            scaled_dot_product = np.where(mask, -self.eps, scaled_dot_product)
+            scaled_dp = np.where(mask, -self.eps, scaled_dp)
 
-        self.scaled_dot_product = scaled_dot_product
+        self.scaled_dot_product = scaled_dp
 
-        # Compute attention scores: 
-        # # Think about which dimension you should apply Softmax
-        self.attention_scores = self.softmax.forward(scaled_dot_product)
+        # Normalize across the relevant target sequence axis via Softmax
+        self.attention_scores = self.softmax.forward(scaled_dp)
 
-        # Calculate final output
-        output = np.matmul(self.attention_scores, V)
+        # Extract features scaled by attention weights
+        out = np.matmul(self.attention_scores, V)
 
-        # Return final output
-        return output
+        return out
     
     def backward(self, d_output):
         """
@@ -57,24 +54,23 @@ class ScaledDotProductAttention:
         """
         # TODO: Implement backward pass
 
-        # Calculate gradients for V
-        d_V = np.matmul(np.swapaxes(self.attention_scores, -1, -2), d_output)
+        # Gradients w.r.t the value representations
+        grad_V = np.matmul(np.swapaxes(self.attention_scores, -1, -2), d_output)
         
-        # Calculate gradients for attention scores
-        d_attention_scores = np.matmul(d_output, np.swapaxes(self.V, -1, -2))
-        d_scaled_dot_product = self.softmax.backward(d_attention_scores)
+        # Derive loss gradients prior to softmax
+        grad_attention_score = np.matmul(d_output, np.swapaxes(self.V, -1, -2))
+        grad_scaled_dp = self.softmax.backward(grad_attention_score)
 
-        # Masked positions were constants in forward, so their gradients are zero.
+        # Mask elements contribute zero to gradient signals
         if self.mask is not None:
-            d_scaled_dot_product = np.where(self.mask, 0.0, d_scaled_dot_product)
+            grad_scaled_dp = np.where(self.mask, 0.0, grad_scaled_dp)
         
-        # Scale gradients by sqrt(d_k)
-        d_scaled_dot_product = d_scaled_dot_product / np.sqrt(self.d_k)
+        # Apply differentiation of scale factor
+        grad_scaled_dp = grad_scaled_dp / np.sqrt(self.d_k)
         
-        # Calculate gradients for Q and K
-        d_Q = np.matmul(d_scaled_dot_product, self.K)
-        d_K = np.matmul(np.swapaxes(d_scaled_dot_product, -1, -2), self.Q)
+        # Backpropagate through matrix multiplications for query and key
+        grad_Q = np.matmul(grad_scaled_dp, self.K)
+        grad_K = np.matmul(np.swapaxes(grad_scaled_dp, -1, -2), self.Q)
         
-        # Return gradients for Q, K, V
-        return d_Q, d_K, d_V
+        return grad_Q, grad_K, grad_V
 

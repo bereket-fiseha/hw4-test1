@@ -29,10 +29,10 @@ class Linear:
         """
         # TODO: Implement forward pass
         
-        # Store input for backward pass
+        # Cache input activation to be utilized in backward step
         self.A = A
 
-        # Affine transform over the last dimension.
+        # Perform the affine projection across the trailing dimension
         Z = np.matmul(A, self.W.T) + self.b
         return Z
 
@@ -43,17 +43,15 @@ class Linear:
         """
         # TODO: Implement backward pass
 
-        # Compute gradients
-        # Gradient wrt input.
+        # Determine the gradient w.r.t to the incoming input features
         self.dLdA = np.matmul(dLdZ, self.W)
 
-        # Flatten all leading dimensions to accumulate parameter gradients.
+        # Flatten any leading dimensions to appropriately accumulate the parameter diffs
         A_2d = self.A.reshape(-1, self.A.shape[-1])
         dLdZ_2d = dLdZ.reshape(-1, dLdZ.shape[-1])
 
-        # Gradients wrt weight and bias.
+        # Accumulate gradients for weights and biases
         self.dLdW = np.matmul(dLdZ_2d.T, A_2d)
         self.dLdb = np.sum(dLdZ_2d, axis=0)
         
-        # Return gradient of loss wrt input
         return self.dLdA

@@ -54,13 +54,13 @@ class SequenceGenerator:
             device: str = "cuda" if torch.cuda.is_available() else "cpu"
     ):
         """
-        Initialize the sequence generator.
+        Constructor for the sequence generator using varied decoding strategies.
         
-        Args:
-            score_fn: Function that returns logits for next token prediction
-            tokenizer: Tokenizer instance for handling token conversions
-            max_length: Maximum sequence length to generate
-            device: Device to run generation on
+        Parameters:
+            score_fn: The model's scoring function returning next-token logits.
+            tokenizer: Tokenizer instance for sequence handling.
+            max_length: The length capacity limit for generation.
+            device: Computing device ('cuda' or 'cpu').
         """
         self.score_fn = score_fn
         self.tokenizer = tokenizer
@@ -85,25 +85,27 @@ class SequenceGenerator:
         if penalty == 1.0:
             return logits
         
-        # Handle both regular and beam search shapes
+        # Optimize by avoiding full_like allocation
         if logits.dim() == 2:
             # Greedy search: (batch_size, vocab_size)
             for idx in range(sequences.size(0)):
                 unique_tokens = torch.unique(sequences[idx])
-                logits[idx, unique_tokens] = logits[idx, unique_tokens] / torch.where(
-                    logits[idx, unique_tokens] > 0,
-                    torch.full_like(logits[idx, unique_tokens], penalty),
-                    torch.full_like(logits[idx, unique_tokens], 1.0/penalty)
+                idx_logits = logits[idx, unique_tokens]
+                logits[idx, unique_tokens] = torch.where(
+                    idx_logits > 0,
+                    idx_logits / penalty,
+                    idx_logits * penalty
                 )
         else:
             # Beam search: (batch_size, beam_width, vocab_size)
             for batch_idx in range(sequences.size(0)):
                 for beam_idx in range(sequences.size(1)):
                     unique_tokens = torch.unique(sequences[batch_idx, beam_idx])
-                    logits[batch_idx, beam_idx, unique_tokens] = logits[batch_idx, beam_idx, unique_tokens] / torch.where(
-                        logits[batch_idx, beam_idx, unique_tokens] > 0,
-                        torch.full_like(logits[batch_idx, beam_idx, unique_tokens], penalty),
-                        torch.full_like(logits[batch_idx, beam_idx, unique_tokens], 1.0/penalty)
+                    idx_logits = logits[batch_idx, beam_idx, unique_tokens]
+                    logits[batch_idx, beam_idx, unique_tokens] = torch.where(
+                        idx_logits > 0,
+                        idx_logits / penalty,
+                        idx_logits * penalty
                     )
         
         return logits
@@ -156,17 +158,17 @@ class SequenceGenerator:
              - sequences is of shape (batch_size, sequence_length)
              - scores is of shape (batch_size,)
         """
-        # Add input validation
+        # Input assertions to ensure correctly formatted tensors
         if not torch.is_tensor(x):
-            raise TypeError("Input x must be a torch tensor")
+            raise TypeError("Expected input x to be a PyTorch tensor.")
         if x.dim() != 2:
-            raise ValueError("Input x must be 2-dimensional (batch_size, seq_len)")
+            raise ValueError("Input x must have shape (batch_size, seq_len).")
         if self.max_length < x.size(1):
-            raise ValueError("max_length must be >= input sequence length")
-        if temperature <= 0:
-            raise ValueError("temperature must be > 0")
-        if repeat_penalty <= 0:
-            raise ValueError("repeat_penalty must be > 0")
+            raise ValueError("Configured max_length must not be less than input sequence length.")
+        if temperature <= 0.0:
+            raise ValueError("Temperature must be strictly positive.")
+        if repeat_penalty <= 0.0:
+            raise ValueError("Repeat penalty must be strictly positive.")
         
         # Track cumulative log-prob scores for each sequence in the batch.
         batch_size = x.size(0)
@@ -184,11 +186,11 @@ class SequenceGenerator:
             next_logits = self._apply_repeat_penalty(next_logits, x, repeat_penalty)
             log_probs = torch.log_softmax(next_logits, dim=-1)
 
-            # Greedy step: pick the highest-probability token.
+            # Execute greedy selection by picking the highest-probability token.
             next_tokens = torch.argmax(log_probs, dim=-1)  # (batch_size,)
             token_scores = log_probs.gather(1, next_tokens.unsqueeze(1)).squeeze(1)
 
-            # Keep finished sequences stable by forcing EOS and zero score increment.
+            # Freeze sequences that have already hit EOS.
             next_tokens = torch.where(
                 finished,
                 torch.full_like(next_tokens, self.tokenizer.eos_id),
@@ -196,11 +198,11 @@ class SequenceGenerator:
             )
             token_scores = torch.where(finished, torch.zeros_like(token_scores), token_scores)
 
-            # Update scores and append sampled token.
+            # Accumulate scores and concatenate generated tokens.
             scores = scores + token_scores
             x = torch.cat([x, next_tokens.unsqueeze(1)], dim=1)
 
-            # Mark sequences that just reached EOS.
+            # Identify if any newly generated tokens are EOS.
             finished = finished | (next_tokens == self.tokenizer.eos_id)
 
         return x, scores
@@ -363,7 +365,7 @@ class SequenceGenerator:
             # Append next tokens
             x = torch.cat([x, next_tokens.unsqueeze(1)], dim=1) # (batch_size, seq_len + 1)
 
-            # Check if any sequence has reached EOS 
+            # Evaluate whether any sequence hit the EOS condition
             is_eos = (next_tokens == self.tokenizer.eos_id)
             finished = finished | is_eos
 

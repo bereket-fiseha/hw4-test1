@@ -80,33 +80,32 @@ class LMTrainer(BaseTrainer):
         for i, batch in enumerate(dataloader):
             # TODO: Unpack batch from the dataloader
             # TODO: Move the batch elements to self.device
-            targets_shifted, targets_golden, lengths = batch
-            targets_shifted = targets_shifted.to(self.device)
-            targets_golden = targets_golden.to(self.device)
-            lengths = lengths.to(self.device)
+            shifted_targets = batch[0].to(self.device)
+            golden_targets = batch[1].to(self.device)
+            seq_lengths = batch[2].to(self.device)
         
 
             with torch.autocast(device_type=self.device, dtype=torch.float16):
 
                 # TODO: Get raw logits and attention weights from model
-                raw_preds, attn_weights = self.model(targets_shifted, lengths)
+                raw_predictions, attention_w = self.model(shifted_targets, seq_lengths)
 
                 # TODO: Calculate raw loss first
                 # What is the shape of raw_preds and targets_golden? 
                 # Would you need to change the shape of the inputs to the criterion?
                 # Hint: See the documentation for CrossEntropyLoss
-                raw_loss = self.criterion(raw_preds.transpose(1, 2), targets_golden)
+                base_loss = self.criterion(raw_predictions.transpose(1, 2), golden_targets)
                 
             # Calculate metrics with raw loss (DO NOT MODIFY THIS)
-            batch_tokens = lengths.sum().item()
+            batch_tokens = seq_lengths.sum().item()
             total_tokens += batch_tokens
-            running_ce_loss += raw_loss.item() * batch_tokens
+            running_ce_loss += base_loss.item() * batch_tokens
 
             # Normalize loss for gradient accumulation
-            loss = raw_loss / self.config['training']['gradient_accumulation_steps']
+            nomalized_loss = base_loss / self.config['training']['gradient_accumulation_steps']
             
             # TODO: Backpropagate the loss
-            self.scaler.scale(loss).backward()
+            self.scaler.scale(nomalized_loss).backward()
         
             # Only update weights after accumulating enough gradients
             if (i + 1) % self.config['training']['gradient_accumulation_steps'] == 0:
@@ -127,8 +126,8 @@ class LMTrainer(BaseTrainer):
             )
             batch_bar.update()
 
-            # Clean up
-            del targets_shifted, targets_golden, lengths, raw_preds, loss
+            # Clean up references manually to preserve VRAM
+            del shifted_targets, golden_targets, seq_lengths, raw_predictions, nomalized_loss
             torch.cuda.empty_cache()
 
         # Handle any remaining gradients at the end of the epoch
@@ -152,7 +151,7 @@ class LMTrainer(BaseTrainer):
             'ce_loss_char': avg_ce_loss_char,
             'perplexity_token': avg_perplexity_token.item(),
             'perplexity_char': avg_perplexity_char.item()
-        }, attn_weights
+        }, attention_w
             
             
     def _validate_epoch(self, dataloader):
