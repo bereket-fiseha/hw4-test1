@@ -35,12 +35,12 @@ class SelfAttentionEncoderLayer(nn.Module):
     '''
     def __init__(self, d_model: int, num_heads: int, d_ff: int, dropout: float = 0.1):
         '''
-        Initialize the SelfAttentionEncoderLayer. 
-        Args:
-            d_model   (int): The dimension of the model.
-            num_heads (int): The number of attention heads.
-            d_ff      (int): The dimension of the feedforward network.
-            dropout (float): The dropout rate.
+        Construct the SelfAttentionEncoderLayer. 
+        Parameters:
+            d_model   (int): Model-wide representation dimension.
+            num_heads (int): Separation count for multi-head self-attention.
+            d_ff      (int): Dense feed-forward block inner size.
+            dropout (float): Dropout probability margin.
         '''
         super().__init__()
         # TODO: Implement __init__
@@ -63,14 +63,14 @@ class SelfAttentionEncoderLayer(nn.Module):
         # TODO: Implement forward: Follow the figure in the writeup
 
         # What will be different from decoder self-attention layer?
-        # Encoder self-attention is bidirectional, so no causal mask is used.
-        x, mha_attn_weights = self.self_attn(
+        # Encoder self-attention incorporates bilateral context, bypassing causal masks.
+        x_processed, attention_weights = self.self_attn(
             x,
             key_padding_mask=key_padding_mask,
             attn_mask=None,
         )
-        x = self.ffn(x)
+        x_processed = self.ffn(x_processed)
         
         # TODO: Return the output tensor and attention weights
-        return x, mha_attn_weights
+        return x_processed, attention_weights
 

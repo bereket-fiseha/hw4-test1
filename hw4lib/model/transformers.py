@@ -93,18 +93,18 @@ class DecoderOnlyTransformer(nn.Module):
             layer_drop_rate: float = 0.0,
     ):
         '''
-        Initialize the Decoder-Only Transformer model.
+        Construct the Decoder-Only Transformer.
 
-        Args:
-            num_layers: int, number of decoder layers
-            d_model: int, model dimension
-            num_heads: int, number of attention heads
-            d_ff: int, feed-forward dimension
-            dropout: float, dropout rate
-            max_len: int, maximum sequence length this model can handle
-            num_classes: int, number of classes
-            weight_tying: bool, whether to use weight tying (default: False)
-            layer_drop_rate: float, layer drop rate (default: 0.0)
+        Parameters:
+            num_layers (int): The count of decoder blocks.
+            d_model (int): The dimensionality of the model.
+            num_heads (int): Heads for multi-head attention.
+            d_ff (int): The feed-forward network dimensionality.
+            dropout (float): Dropout probability.
+            max_len (int): Upper bound on the sequence length.
+            num_classes (int): Size of the target vocabulary/classes.
+            weight_tying (bool): Enable weight sharing between embedding and output layers.
+            layer_drop_rate (float): Probability of skipping a layer.
         '''
         super().__init__()
 
@@ -139,7 +139,7 @@ class DecoderOnlyTransformer(nn.Module):
             target_lengths (Optional[torch.Tensor]): The lengths of the target sequences. shape: (batch_size,)
         Returns:
             seq_out (torch.Tensor): The output sequence. shape: (batch_size, seq_len, d_model)
-            runnint_att (dict): The attention weights. shape: (batch_size, seq_len, seq_len)
+            running_att (dict): The attention weights. shape: (batch_size, seq_len, seq_len)
         '''
         # DO NOT MODIFY 
         if self.training and target_lengths is None:
@@ -162,20 +162,20 @@ class DecoderOnlyTransformer(nn.Module):
         x = self.dropout(x)
 
         # TODO: Pass through decoder layers and save attention
-        runnint_att = {}
+        running_att = {}
         for i in range(self.num_layers):
-            # Optionally apply LayerDrop during training (More regularization!)
-            if self.training and self.layer_drop_rate > 0 and random.random() < self.layer_drop_rate:
+            # Employ LayerDrop during training iterations for increased regularization
+            if self.training and self.layer_drop_rate > 0.0 and random.random() < self.layer_drop_rate:
                 continue
             
             x, attention = self.dec_layers[i](x, key_padding_mask=pad_mask_dec, attn_mask=causal_mask)
-            runnint_att['layer{}_dec_self'.format(i + 1)] = attention
+            running_att['layer{}_dec_self'.format(i + 1)] = attention
 
         # TODO: Final normalization and projection for next character prediction
         seq_out = self.final_linear(self.norm(x))
         
         # TODO: Return the output sequence and running attention weights
-        return seq_out, runnint_att
+        return seq_out, running_att
     
     def score(self, batch_prompts: torch.Tensor) -> torch.Tensor:
         '''
@@ -258,8 +258,7 @@ class EncoderDecoderTransformer(nn.Module):
         self.skip_encoder_pe = skip_encoder_pe
         self.skip_decoder_pe = skip_decoder_pe
 
-        # TODO: Implement __init__: 
-        # create encoder/decoder stacks, embeddings, positional encoding, dropout, norms, and final linear layer
+        # Construct encoder/decoder blocks, embeddings, PE, dropout routines, norms, and final projection
         self.enc_layers = nn.ModuleList([
             SelfAttentionEncoderLayer(d_model, num_encoder_heads, d_ff_encoder, dropout)
             for _ in range(num_encoder_layers)

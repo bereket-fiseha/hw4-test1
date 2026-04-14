@@ -16,20 +16,20 @@ Specification:
 '''
 def PadMask(padded_input, input_lengths):
     """ 
-    Create a mask for padding positions. 
-    Args:
-        padded_input: The input tensor, shape (N, T, ...).
-        input_lengths: Actual lengths before padding, shape (N,).
+    Constructs a mask identifying padded positions. 
+    Parameters:
+        padded_input: Tensor representing input sequences, shape (N, T, ...).
+        input_lengths: 1D tensor of accurate pre-padding lengths, shape (N,).
     Returns:
-        Boolean mask tensor with shape (N, T).
+        Boolean tensor defining padding positions with shape (N, T).
     """
-    # Build time indices [0, 1, ..., T-1] and compare each index with valid length.
-    seq_len = padded_input.size(1)
-    time_idx = torch.arange(seq_len, device=padded_input.device).unsqueeze(0)  # (1, T)
-    valid_lens = input_lengths.to(padded_input.device).unsqueeze(1)             # (N, 1)
+    # Instantiate time indices [0, 1, ..., T-1] to cross-check valid extents.
+    sequence_length = padded_input.size(1)
+    time_indices = torch.arange(sequence_length, device=padded_input.device).unsqueeze(0)  # (1, T)
+    actual_lens = input_lengths.to(padded_input.device).unsqueeze(1)                       # (N, 1)
 
-    # True where index is beyond valid length => padded position.
-    return time_idx >= valid_lens
+    # Identifiers exceed valid sequence lengths represent padded elements.
+    return time_indices >= actual_lens
 
 ''' 
 TODO: Implement this function.
@@ -45,11 +45,11 @@ Specification:
 '''
 def CausalMask(padded_input):
     """ 
-    Create a causal mask for self-attention. 
-    Args:
-        padded_input: Input tensor, shape (N, T, ...).
+    Constructs an upper-triangular self-attention causal mask. 
+    Parameters:
+        padded_input: Batch sequence tensor, shape (N, T, ...).
     Returns:
-        Boolean mask tensor with shape (T, T).
+        Boolean tensor blocking future attention with shape (T, T).
     """
     # Upper-triangular mask (excluding diagonal) blocks attention to future positions.
     seq_len = padded_input.size(1)

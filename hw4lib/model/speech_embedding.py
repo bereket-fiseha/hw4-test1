@@ -50,15 +50,16 @@ Architecture Flow:
 ## -------------------------------------------------------------------------------------------------    
 class StackedBLSTMEmbedding(nn.Module):
     """
-    Stacked Bidirectional LSTM with interleaved max-pooling layers.
-    Architecture: BLSTM1 -> LayerNorm1 -> MaxPool1 -> BLSTM2 -> LayerNorm2 -> MaxPool2 -> Linear -> Dropout
+    Structured Bidirectional LSTM enhanced with intermediary max-pooling operations.
+    Flow: BLSTM1 -> LayerNorm1 -> MaxPool1 -> BLSTM2 -> LayerNorm2 -> MaxPool2 -> Linear -> Dropout
     """
     def __init__(self, input_dim: int, hidden_dim: int, output_dim: int, 
                  time_reduction: int = 2, dropout: float = 0.1):
         super(StackedBLSTMEmbedding, self).__init__()
         
-        if not all(x > 0 for x in [input_dim, hidden_dim, output_dim, time_reduction]):
-            raise ValueError("All dimension values must be positive")
+        dims_to_check = [input_dim, hidden_dim, output_dim, time_reduction]
+        if any(d <= 0 for d in dims_to_check):
+            raise ValueError("Dimensions and reduction factors must be strictly positive.")
         if not 0 <= dropout < 1:
             raise ValueError("Dropout rate must be between 0 and 1")
             
@@ -161,8 +162,7 @@ class StackedBLSTMEmbedding(nn.Module):
         output = self.pool2(output)
         output = output.transpose(1, 2)
         x_len = self.calculate_pool_output_length(x_len, self.pool2_params)
-        
-        # Final linear embedding and dropout
+        # Execute linear transformation and dropout
         output = self.linear_embed(output)
         output = self.dropout(output)
         
