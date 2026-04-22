@@ -95,12 +95,12 @@ class MultiHeadAttention:
         # Backward propagation across SDPA
         grad_q_split, grad_k_split, grad_v_split = self.attention.backward(grad_attn_out_split)
 
-        # Stitch head gradients back together 
+        # Recombine head gradients
         grad_q = self._concat_heads(grad_q_split)
         grad_k = self._concat_heads(grad_k_split)
         grad_v = self._concat_heads(grad_v_split)
 
-        # Pass representations through respective input projection backwards
+        # Propagate gradients through input projections
         d_query = self.q_proj.backward(grad_q)
         d_key = self.k_proj.backward(grad_k)
         d_value = self.v_proj.backward(grad_v)

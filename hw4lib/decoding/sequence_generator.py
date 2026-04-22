@@ -198,12 +198,12 @@ class SequenceGenerator:
             )
             token_scores = torch.where(finished, torch.zeros_like(token_scores), token_scores)
 
-            # Accumulate scores and concatenate generated tokens.
-            scores = scores + token_scores
+            # Accumulate scores and concatenate generated tokens
+            scores += token_scores
             x = torch.cat([x, next_tokens.unsqueeze(1)], dim=1)
 
-            # Identify if any newly generated tokens are EOS.
-            finished = finished | (next_tokens == self.tokenizer.eos_id)
+            # Check for EOS tokens and update finished flag
+            finished |= (next_tokens == self.tokenizer.eos_id)
 
         return x, scores
 
@@ -365,9 +365,8 @@ class SequenceGenerator:
             # Append next tokens
             x = torch.cat([x, next_tokens.unsqueeze(1)], dim=1) # (batch_size, seq_len + 1)
 
-            # Evaluate whether any sequence hit the EOS condition
-            is_eos = (next_tokens == self.tokenizer.eos_id)
-            finished = finished | is_eos
+            # Check for EOS tokens and update finished flag
+            finished |= (next_tokens == self.tokenizer.eos_id)
 
         return x, scores
 

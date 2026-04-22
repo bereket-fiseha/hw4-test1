@@ -258,7 +258,7 @@ class ASRDataset(Dataset):
                 - shifted_transcript: LongTensor (time) or None
                 - golden_transcript: LongTensor  (time) or None
         """
-        # Fetch feature from pre-stored sequence
+        # Retrieve feature from pre-stored sequence
         feat = torch.FloatTensor(self.feats[idx])
 
         # Apply specific normalization techniques if demanded
@@ -297,7 +297,7 @@ class ASRDataset(Dataset):
         # TODO: Implement collate_fn
 
         # TODO: Collect transposed features from the batch into a list of tensors (B x T x F)
-        # Convert each feature from (F, T) to (T, F) before padding.
+        # Convert each feature from (F, T) to (T, F) before padding
         batch_feats = [item[0].transpose(0, 1) for item in batch]
 
         # TODO: Collect feature lengths from the batch into a tensor

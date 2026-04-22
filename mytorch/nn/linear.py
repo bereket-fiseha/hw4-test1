@@ -43,10 +43,10 @@ class Linear:
         """
         # TODO: Implement backward pass
 
-        # Determine the gradient w.r.t to the incoming input features
+        # Compute the gradient w.r.t. the incoming input features
         self.dLdA = np.matmul(dLdZ, self.W)
 
-        # Flatten any leading dimensions to appropriately accumulate the parameter diffs
+        # Flatten leading dimensions to accumulate parameter gradients correctly
         A_2d = self.A.reshape(-1, self.A.shape[-1])
         dLdZ_2d = dLdZ.reshape(-1, dLdZ.shape[-1])
 

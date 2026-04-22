@@ -60,10 +60,7 @@ class SelfAttentionEncoderLayer(nn.Module):
             x (torch.Tensor): The output tensor. shape: (batch_size, seq_len, d_model)
             mha_attn_weights (torch.Tensor): The attention weights. shape: (batch_size, seq_len, seq_len)   
         '''
-        # TODO: Implement forward: Follow the figure in the writeup
-
-        # What will be different from decoder self-attention layer?
-        # Encoder self-attention incorporates bilateral context, bypassing causal masks.
+        # Encoder self-attention incorporates bidirectional context, bypassing causal masks
         x_processed, attention_weights = self.self_attn(
             x,
             key_padding_mask=key_padding_mask,
@@ -71,6 +68,5 @@ class SelfAttentionEncoderLayer(nn.Module):
         )
         x_processed = self.ffn(x_processed)
         
-        # TODO: Return the output tensor and attention weights
         return x_processed, attention_weights
 
